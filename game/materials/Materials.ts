@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { TextureGenerator } from '../assets/TextureGenerator';
+import { GameOptions } from '../index';
 
 export interface GameMaterials {
   asphalt: THREE.Material;
@@ -7,42 +9,97 @@ export interface GameMaterials {
   carWheel: THREE.Material;
   startLine: THREE.Material;
   wall: THREE.Material;
+  rumble: THREE.Material;
+  fence: THREE.Material;
+  carWindow: THREE.Material;
 }
 
-export function createMaterials(): GameMaterials {
-  // Asphalt material for track surface
-  const asphalt = new THREE.MeshLambertMaterial({
-    color: 0x444444,
+export function createMaterials(options: GameOptions): GameMaterials {
+  // Generate procedural textures
+  const asphaltBaseTexture = TextureGenerator.generateAsphaltBase();
+  const asphaltNormalTexture = TextureGenerator.generateAsphaltNormal();
+  const asphaltRoughnessTexture = TextureGenerator.generateAsphaltRoughness();
+  const grassBaseTexture = TextureGenerator.generateGrassBase();
+  const rumbleTexture = TextureGenerator.generateRumbleBase();
+  const fenceAlphaTexture = TextureGenerator.generateFenceAlpha();
+  
+  // Configure texture repeats
+  asphaltBaseTexture.repeat.set(options.asphaltRepeatU, options.asphaltRepeatV);
+  asphaltNormalTexture.repeat.set(options.asphaltRepeatU, options.asphaltRepeatV);
+  asphaltRoughnessTexture.repeat.set(options.asphaltRepeatU, options.asphaltRepeatV);
+  grassBaseTexture.repeat.set(options.grassRepeatU, options.grassRepeatV);
+  
+  // NASCAR asphalt track surface - PBR material
+  const asphalt = new THREE.MeshStandardMaterial({
+    map: asphaltBaseTexture,
+    normalMap: asphaltNormalTexture,
+    roughnessMap: asphaltRoughnessTexture,
+    roughness: 0.9,
+    metalness: 0.0,
     side: THREE.DoubleSide
   });
   
-  // Grass material for ground
-  const grass = new THREE.MeshLambertMaterial({
-    color: 0x4a7c59
+  // Infield grass material
+  const grass = new THREE.MeshStandardMaterial({
+    map: grassBaseTexture,
+    roughness: 0.8,
+    metalness: 0.0
   });
   
-  // Car body material (bright color)
-  const carBody = new THREE.MeshPhongMaterial({
-    color: 0xff4444,
-    shininess: 30,
-    specular: 0x111111
+  // Stock car body material (glossy with livery color)
+  const carBody = new THREE.MeshStandardMaterial({
+    color: options.bodyColor,
+    roughness: 0.1,
+    metalness: 0.0,
+    envMapIntensity: 0.5
   });
   
-  // Car wheel material (dark)
-  const carWheel = new THREE.MeshLambertMaterial({
-    color: 0x222222
+  // Car wheel/tire material (dark with some metallic rim reflection)
+  const carWheel = new THREE.MeshStandardMaterial({
+    color: 0x222222,
+    roughness: 0.9,
+    metalness: 0.1
   });
   
-  // Start line material (white)
-  const startLine = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
+  // Tinted windows
+  const carWindow = new THREE.MeshStandardMaterial({
+    color: 0x202020,
+    metalness: 0.0,
+    roughness: 0.1,
     transparent: true,
-    opacity: 0.9
+    opacity: 0.8,
+    envMapIntensity: 0.3
   });
   
-  // Wall material (concrete gray)
-  const wall = new THREE.MeshLambertMaterial({
-    color: 0x888888
+  // Start/finish line (bright white, emissive)
+  const startLine = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0x444444,
+    roughness: 0.3,
+    metalness: 0.0
+  });
+  
+  // Concrete wall material (white paint finish)
+  const wall = new THREE.MeshStandardMaterial({
+    color: 0xf5f5f5,
+    roughness: 0.6,
+    metalness: 0.0
+  });
+  
+  // Rumble strips (red/white alternating)
+  const rumble = new THREE.MeshStandardMaterial({
+    map: rumbleTexture,
+    roughness: 0.7,
+    metalness: 0.0
+  });
+  
+  // Chain-link fence
+  const fence = new THREE.MeshBasicMaterial({
+    color: 0x888888,
+    alphaMap: fenceAlphaTexture,
+    transparent: true,
+    alphaTest: 0.3,
+    side: THREE.DoubleSide
   });
   
   return {
@@ -50,8 +107,11 @@ export function createMaterials(): GameMaterials {
     grass,
     carBody,
     carWheel,
+    carWindow,
     startLine,
-    wall
+    wall,
+    rumble,
+    fence
   };
 }
 

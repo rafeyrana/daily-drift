@@ -15,7 +15,7 @@ export class LandingUI {
     this.hints = new Hints();
     
     // Listen for visual key press feedback
-    document.addEventListener('keypress-visual', this.handleKeyPressVisual.bind(this));
+    document.addEventListener('keypress-visual', this.handleKeyPressVisual.bind(this) as EventListener);
   }
 
   mount(root: HTMLElement): void {
@@ -134,14 +134,15 @@ export class LandingUI {
     this.onLeaderboardCallback?.();
   }
 
-  private handleKeyPressVisual(event: CustomEvent): void {
-    const { key } = event.detail;
+  private handleKeyPressVisual(event: Event): void {
+    const customEvent = event as CustomEvent;
+    const { key } = customEvent.detail;
     this.hints.showKeyPress(key);
   }
 
   dispose(): void {
     this.unmount();
     this.hints.dispose();
-    document.removeEventListener('keypress-visual', this.handleKeyPressVisual.bind(this));
+    document.removeEventListener('keypress-visual', this.handleKeyPressVisual.bind(this) as EventListener);
   }
 }

@@ -28,9 +28,9 @@ export class HUD {
       right: 0;
       bottom: 0;
       pointer-events: none;
-      font-family: 'Courier New', monospace;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: white;
-      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
       z-index: 1000;
     `;
     
@@ -38,10 +38,16 @@ export class HUD {
     this.speedElement = document.createElement('div');
     this.speedElement.style.cssText = `
       position: absolute;
-      top: 20px;
-      left: 20px;
-      font-size: 32px;
-      font-weight: bold;
+      top: 15px;
+      left: 15px;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 8px 12px;
+      background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(0,0,0,0.5));
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.2);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     `;
     this.speedElement.textContent = '0 km/h';
     
@@ -50,8 +56,13 @@ export class HUD {
     this.driftAngleElement.style.cssText = `
       position: absolute;
       top: 70px;
-      left: 20px;
-      font-size: 20px;
+      left: 15px;
+      font-size: 16px;
+      font-weight: 500;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.6);
+      border-radius: 4px;
+      border-left: 3px solid #ffd700;
     `;
     this.driftAngleElement.textContent = '0°';
     
@@ -59,14 +70,19 @@ export class HUD {
     this.driftIndicator = document.createElement('div');
     this.driftIndicator.style.cssText = `
       position: absolute;
-      top: 20px;
-      right: 20px;
-      font-size: 48px;
-      font-weight: bold;
-      color: #ff6600;
-      text-shadow: 0 0 10px #ff6600;
+      top: 15px;
+      right: 15px;
+      font-size: 36px;
+      font-weight: 900;
+      color: #ffd700;
+      text-shadow: 0 0 12px rgba(255, 215, 0, 0.8), 2px 2px 4px rgba(0,0,0,0.9);
       opacity: 0;
-      transition: opacity 0.2s;
+      transition: opacity 0.2s, color 0.3s;
+      letter-spacing: 2px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(0,0,0,0.6));
+      border-radius: 8px;
+      border: 2px solid rgba(255, 215, 0, 0.3);
     `;
     this.driftIndicator.textContent = 'DRIFT';
     
@@ -74,36 +90,42 @@ export class HUD {
     this.offTrackBanner = document.createElement('div');
     this.offTrackBanner.style.cssText = `
       position: absolute;
-      top: 50%;
+      top: 40%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-size: 36px;
-      font-weight: bold;
-      color: #ff3333;
-      background: rgba(0,0,0,0.7);
-      padding: 20px 40px;
-      border-radius: 10px;
-      border: 2px solid #ff3333;
+      font-size: 24px;
+      font-weight: 600;
+      color: white;
+      background: linear-gradient(135deg, rgba(220, 38, 127, 0.95), rgba(239, 68, 68, 0.95));
+      padding: 12px 20px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 4px 12px rgba(220, 38, 127, 0.4);
       opacity: 0;
-      transition: opacity 0.3s;
+      transition: opacity 0.25s ease-out;
+      letter-spacing: 1px;
     `;
     this.offTrackBanner.textContent = 'OFF TRACK';
     
-    // Controls info (bottom)
+    // Controls info (bottom) - NASCAR styled
     const controlsInfo = document.createElement('div');
     controlsInfo.style.cssText = `
       position: absolute;
-      bottom: 20px;
-      left: 20px;
-      font-size: 14px;
-      color: rgba(255,255,255,0.8);
-      line-height: 1.4;
+      bottom: 15px;
+      left: 15px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.5;
+      background: rgba(0,0,0,0.6);
+      padding: 10px 12px;
+      border-radius: 4px;
+      border-left: 3px solid #ffd700;
+      font-weight: 500;
     `;
     controlsInfo.innerHTML = `
-      ↑ Throttle  ↓ Brake/Reverse<br>
-      ← → Steer<br>
-      <br>
-      Drift combos:<br>
+      <div style="color: #ffd700; font-weight: 600; margin-bottom: 4px;">CONTROLS</div>
+      ↑ Throttle  ↓ Brake/Reverse  ← → Steer<br>
+      <div style="color: #ffd700; font-weight: 600; margin: 6px 0 2px 0;">DRIFT TECHNIQUES</div>
       • Brake-tap: ↓ tap + steer<br>
       • Power-over: Hold ↑ + steer<br>
       • Feint: Quick ←→ + throttle
@@ -139,10 +161,12 @@ export class HUD {
       // Change color based on drift angle severity
       if (Math.abs(data.driftDeg) > 30) {
         this.driftIndicator.style.color = '#ff3333';
-        this.driftIndicator.style.textShadow = '0 0 15px #ff3333';
+        this.driftIndicator.style.textShadow = '0 0 15px rgba(255, 51, 51, 0.9), 2px 2px 4px rgba(0,0,0,0.9)';
+        this.driftIndicator.style.borderColor = 'rgba(255, 51, 51, 0.5)';
       } else {
-        this.driftIndicator.style.color = '#ff6600';
-        this.driftIndicator.style.textShadow = '0 0 10px #ff6600';
+        this.driftIndicator.style.color = '#ffd700';
+        this.driftIndicator.style.textShadow = '0 0 12px rgba(255, 215, 0, 0.8), 2px 2px 4px rgba(0,0,0,0.9)';
+        this.driftIndicator.style.borderColor = 'rgba(255, 215, 0, 0.3)';
       }
     } else {
       this.driftIndicator.style.opacity = '0';

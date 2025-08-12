@@ -7,7 +7,7 @@ import { GameOptions } from './index';
 import { createMaterials, disposeMaterials, GameMaterials } from './materials/Materials';
 import { CarPhysics, PhysicsParams } from './physics/CarPhysics';
 import { DriftController } from './physics/DriftController';
-import { createOvalTrack } from './track/OvalTrack';
+import { createOvalTrack, createNASCARTrack } from './track/OvalTrack';
 import { CenterlineSample, findNearestOnCenterline, isOffTrack } from './track/TrackUtil';
 import { HUD } from './ui/HUD';
 import { radToDeg } from './util/MathUtil';
@@ -48,40 +48,132 @@ export class Game {
 
   private setupScene(): void {
     // Create materials
-    this.materials = createMaterials();
+    this.materials = createMaterials(this.options);
 
-    // Add lights
-    const hemisphereLight = new THREE.HemisphereLight(0x87ceeb, 0x4a7c59, 0.6);
-    this.engine.scene.add(hemisphereLight);
-
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    directionalLight.position.set(50, 50, 25);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048;
-    directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.near = 0.1;
-    directionalLight.shadow.camera.far = 200;
-    directionalLight.shadow.camera.left = -100;
-    directionalLight.shadow.camera.right = 100;
-    directionalLight.shadow.camera.top = 100;
-    directionalLight.shadow.camera.bottom = -100;
-    this.engine.scene.add(directionalLight);
+    // Setup NASCAR-style lighting
+    this.setupNASCARLighting();
+    
+    // Setup sky and environment
+    this.setupSkyEnvironment();
 
     // Add ground plane
-    const groundGeometry = new THREE.PlaneGeometry(400, 400);
+    const groundGeometry = new THREE.PlaneGeometry(800, 800);
     const groundMesh = new THREE.Mesh(groundGeometry, this.materials.grass);
     groundMesh.rotation.x = -Math.PI / 2;
     groundMesh.receiveShadow = true;
     this.engine.scene.add(groundMesh);
   }
+  
+  private setupNASCARLighting(): void {
+    // Daytime hemisphere light (sky blue top, grass green bottom)
+    const hemisphereLight = new THREE.HemisphereLight(0xbfd9ff, 0x9ecb8d, 0.5);
+    this.engine.scene.add(hemisphereLight);
+
+    // Main sun (directional light)
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    sunLight.position.set(200, 300, 150);
+    sunLight.castShadow = true;
+    
+    // Configure shadow camera to cover the entire track area
+    const shadowSize = 150;
+    sunLight.shadow.mapSize.width = this.options.shadowQuality;
+    sunLight.shadow.mapSize.height = this.options.shadowQuality;
+    sunLight.shadow.camera.near = 0.1;
+    sunLight.shadow.camera.far = 600;
+    sunLight.shadow.camera.left = -shadowSize;
+    sunLight.shadow.camera.right = shadowSize;
+    sunLight.shadow.camera.top = shadowSize;
+    sunLight.shadow.camera.bottom = -shadowSize;
+    sunLight.shadow.bias = -0.0001;
+    
+    this.engine.scene.add(sunLight);
+  }
+  
+  private setupSkyEnvironment(): void {
+    // Create day sky gradient
+    const skyGeometry = new THREE.SphereGeometry(500, 16, 8);
+    const skyMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x87ceeb) },
+        bottomColor: { value: new THREE.Color(0xe0f6ff) },
+        offset: { value: 50 },
+        exponent: { value: 0.6 }
+      },
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition + offset).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }
+      `,
+      side: THREE.BackSide
+    });
+    
+    const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+    this.engine.scene.add(sky);
+    
+    // Add clouds if enabled
+    if (this.options.enableClouds) {
+      this.addClouds();
+    }
+  }
+  
+  private addClouds(): void {
+    const cloudGroup = new THREE.Group();
+    const cloudCount = 15;
+    
+    for (let i = 0; i < cloudCount; i++) {
+      const cloudGeometry = new THREE.PlaneGeometry(100 + Math.random() * 100, 60 + Math.random() * 40);
+      const cloudMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.6 + Math.random() * 0.2,
+        side: THREE.DoubleSide
+      });
+      
+      const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
+      
+      // Position clouds around the track
+      const angle = (i / cloudCount) * Math.PI * 2;
+      const distance = 200 + Math.random() * 150;
+      cloud.position.set(
+        Math.cos(angle) * distance,
+        120 + Math.random() * 60,
+        Math.sin(angle) * distance
+      );
+      
+      // Random rotation
+      cloud.rotation.z = Math.random() * Math.PI * 2;
+      
+      cloudGroup.add(cloud);
+    }
+    
+    this.engine.scene.add(cloudGroup);
+    
+    // Slow cloud drift animation
+    const animateClouds = () => {
+      cloudGroup.rotation.y += 0.0002;
+      requestAnimationFrame(animateClouds);
+    };
+    animateClouds();
+  }
 
   private setupTrack(): void {
-    const trackMeshes = createOvalTrack(
-      this.options.majorRadius,
-      this.options.minorRadius,
-      this.options.trackWidth,
-      this.options.samples,
-      this.options.enableWalls
+    const trackMeshes = createNASCARTrack(
+      this.options,
+      this.materials
     );
 
     // Add track meshes to scene

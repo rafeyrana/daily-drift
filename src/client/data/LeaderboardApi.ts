@@ -46,7 +46,7 @@ function generateMockData(dateISO?: string): TodayLeaderboard {
   });
 
   return {
-    dateISO: dateISO || new Date().toISOString().split('T')[0],
+    dateISO: dateISO ?? new Date().toISOString().split('T')[0],
     trackName: 'Oval Speedway',
     entries
   };

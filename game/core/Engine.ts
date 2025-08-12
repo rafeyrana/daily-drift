@@ -23,16 +23,19 @@ export class Engine {
     this.container = container;
     this.timeStep = new FixedTimeStep(1/120, 5);
     
-    // Create renderer
+    // Create renderer with NASCAR-optimized settings
     this.renderer = new THREE.WebGLRenderer({ 
       antialias: true,
-      alpha: false 
+      alpha: false,
+      powerPreference: 'high-performance'
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x87CEEB, 1); // Sky blue
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     
     // Create scene
     this.scene = new THREE.Scene();

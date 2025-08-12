@@ -1,6 +1,5 @@
 export class Logo {
   private element: SVGSVGElement;
-  private glitchActive = false;
 
   constructor() {
     this.element = this.createLogoSVG();
@@ -11,7 +10,6 @@ export class Logo {
   }
 
   setGlitchActive(active: boolean): void {
-    this.glitchActive = active;
     if (active) {
       this.element.classList.add('glitch');
     } else {

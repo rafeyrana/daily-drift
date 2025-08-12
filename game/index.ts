@@ -6,6 +6,11 @@ export interface GameOptions {
   minorRadius: number;
   trackWidth: number;
   samples: number;
+  straightLength: number;
+  cornerRadiusInner: number;
+  cornerRadiusOuter: number;
+  bankAngleStraights: number;
+  bankAngleCorners: number;
   
   // Physics parameters
   wheelBase: number;
@@ -28,6 +33,13 @@ export interface GameOptions {
   enableWalls: boolean;
   cameraDistance: number;
   cameraHeight: number;
+  shadowQuality: number;
+  enableClouds: boolean;
+  bodyColor: number;
+  asphaltRepeatU: number;
+  asphaltRepeatV: number;
+  grassRepeatU: number;
+  grassRepeatV: number;
 }
 
 export const defaultOptions: GameOptions = {
@@ -36,6 +48,11 @@ export const defaultOptions: GameOptions = {
   minorRadius: 40,
   trackWidth: 8,
   samples: 512,
+  straightLength: 120,
+  cornerRadiusInner: 35,
+  cornerRadiusOuter: 45,
+  bankAngleStraights: 3,
+  bankAngleCorners: 12,
   
   // Physics
   wheelBase: 2.6,
@@ -56,8 +73,15 @@ export const defaultOptions: GameOptions = {
   
   // Visual
   enableWalls: true,
-  cameraDistance: 8,
-  cameraHeight: 4
+  cameraDistance: 6.5,
+  cameraHeight: 3.2,
+  shadowQuality: 2048,
+  enableClouds: true,
+  bodyColor: 0xff4444,
+  asphaltRepeatU: 20,
+  asphaltRepeatV: 4,
+  grassRepeatU: 10,
+  grassRepeatV: 10
 };
 
 let currentGame: Game | null = null;

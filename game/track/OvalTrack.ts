@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { createEllipseCenterline, CenterlineSample } from './TrackUtil';
+import { createNASCAROval, NASCARTrackMeshes } from './NASCAROval';
+import { GameOptions } from '../index';
+import { GameMaterials } from '../materials/Materials';
 
 export interface TrackMeshes {
   trackMesh: THREE.Mesh;
@@ -31,6 +34,29 @@ export function createOvalTrack(
     startLineMesh,
     wallsGroup,
     centerlineSamples
+  };
+}
+
+// New NASCAR-style oval track creation function
+export function createNASCARTrack(
+  options: GameOptions,
+  materials: GameMaterials
+): TrackMeshes {
+  const nascarTrack = createNASCAROval(options, materials);
+  
+  // Create a combined walls group
+  const combinedWallsGroup = new THREE.Group();
+  if (nascarTrack.wallsGroup) combinedWallsGroup.add(nascarTrack.wallsGroup);
+  if (nascarTrack.rumbleGroup) combinedWallsGroup.add(nascarTrack.rumbleGroup);
+  if (nascarTrack.fenceGroup) combinedWallsGroup.add(nascarTrack.fenceGroup);
+  if (nascarTrack.paintedLinesGroup) combinedWallsGroup.add(nascarTrack.paintedLinesGroup);
+  if (nascarTrack.infieldMesh) combinedWallsGroup.add(nascarTrack.infieldMesh);
+  
+  return {
+    trackMesh: nascarTrack.trackMesh,
+    startLineMesh: nascarTrack.startLineMesh,
+    wallsGroup: combinedWallsGroup.children.length > 0 ? combinedWallsGroup : null,
+    centerlineSamples: nascarTrack.centerlineSamples
   };
 }
 
