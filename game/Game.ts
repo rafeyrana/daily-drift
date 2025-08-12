@@ -7,7 +7,7 @@ import { GameOptions } from './index';
 import { createMaterials, disposeMaterials, GameMaterials } from './materials/Materials';
 import { CarPhysics, PhysicsParams } from './physics/CarPhysics';
 import { DriftController } from './physics/DriftController';
-import { createOvalTrack, createNASCARTrack } from './track/OvalTrack';
+import { createNASCARTrack, createOvalTrack } from './track/OvalTrack';
 import { CenterlineSample, findNearestOnCenterline, isOffTrack } from './track/TrackUtil';
 import { HUD } from './ui/HUD';
 import { radToDeg } from './util/MathUtil';
@@ -52,7 +52,7 @@ export class Game {
 
     // Setup NASCAR-style lighting
     this.setupNASCARLighting();
-    
+
     // Setup sky and environment
     this.setupSkyEnvironment();
 
@@ -63,7 +63,7 @@ export class Game {
     groundMesh.receiveShadow = true;
     this.engine.scene.add(groundMesh);
   }
-  
+
   private setupNASCARLighting(): void {
     // Daytime hemisphere light (sky blue top, grass green bottom)
     const hemisphereLight = new THREE.HemisphereLight(0xbfd9ff, 0x9ecb8d, 0.5);
@@ -73,7 +73,7 @@ export class Game {
     const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
     sunLight.position.set(200, 300, 150);
     sunLight.castShadow = true;
-    
+
     // Configure shadow camera to cover the entire track area
     const shadowSize = 150;
     sunLight.shadow.mapSize.width = this.options.shadowQuality;
@@ -85,10 +85,10 @@ export class Game {
     sunLight.shadow.camera.top = shadowSize;
     sunLight.shadow.camera.bottom = -shadowSize;
     sunLight.shadow.bias = -0.0001;
-    
+
     this.engine.scene.add(sunLight);
   }
-  
+
   private setupSkyEnvironment(): void {
     // Create day sky gradient
     const skyGeometry = new THREE.SphereGeometry(500, 16, 8);
@@ -97,7 +97,7 @@ export class Game {
         topColor: { value: new THREE.Color(0x87ceeb) },
         bottomColor: { value: new THREE.Color(0xe0f6ff) },
         offset: { value: 50 },
-        exponent: { value: 0.6 }
+        exponent: { value: 0.6 },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -118,33 +118,36 @@ export class Game {
           gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
         }
       `,
-      side: THREE.BackSide
+      side: THREE.BackSide,
     });
-    
+
     const sky = new THREE.Mesh(skyGeometry, skyMaterial);
     this.engine.scene.add(sky);
-    
+
     // Add clouds if enabled
     if (this.options.enableClouds) {
       this.addClouds();
     }
   }
-  
+
   private addClouds(): void {
     const cloudGroup = new THREE.Group();
     const cloudCount = 15;
-    
+
     for (let i = 0; i < cloudCount; i++) {
-      const cloudGeometry = new THREE.PlaneGeometry(100 + Math.random() * 100, 60 + Math.random() * 40);
+      const cloudGeometry = new THREE.PlaneGeometry(
+        100 + Math.random() * 100,
+        60 + Math.random() * 40
+      );
       const cloudMaterial = new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
         opacity: 0.6 + Math.random() * 0.2,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
       });
-      
+
       const cloud = new THREE.Mesh(cloudGeometry, cloudMaterial);
-      
+
       // Position clouds around the track
       const angle = (i / cloudCount) * Math.PI * 2;
       const distance = 200 + Math.random() * 150;
@@ -153,15 +156,15 @@ export class Game {
         120 + Math.random() * 60,
         Math.sin(angle) * distance
       );
-      
+
       // Random rotation
       cloud.rotation.z = Math.random() * Math.PI * 2;
-      
+
       cloudGroup.add(cloud);
     }
-    
+
     this.engine.scene.add(cloudGroup);
-    
+
     // Slow cloud drift animation
     const animateClouds = () => {
       cloudGroup.rotation.y += 0.0002;
@@ -171,10 +174,21 @@ export class Game {
   }
 
   private setupTrack(): void {
-    const trackMeshes = createNASCARTrack(
-      this.options,
-      this.materials
-    );
+    let trackMeshes;
+    try {
+      // Preferred: NASCAR-style oval with banking and visuals
+      trackMeshes = createNASCARTrack(this.options, this.materials);
+    } catch (err) {
+      console.error('Failed to create NASCAR track, falling back to simple oval:', err);
+      // Fallback: simple ellipse ribbon so the game still mounts
+      trackMeshes = createOvalTrack(
+        this.options.majorRadius,
+        this.options.minorRadius,
+        this.options.trackWidth,
+        this.options.samples,
+        this.options.enableWalls
+      );
+    }
 
     // Add track meshes to scene
     trackMeshes.trackMesh.receiveShadow = true;
@@ -183,8 +197,8 @@ export class Game {
 
     if (trackMeshes.wallsGroup) {
       trackMeshes.wallsGroup.children.forEach((wall) => {
-        wall.castShadow = true;
-        wall.receiveShadow = true;
+        (wall as THREE.Mesh).castShadow = true;
+        (wall as THREE.Mesh).receiveShadow = true;
       });
       this.engine.scene.add(trackMeshes.wallsGroup);
     }
@@ -304,6 +318,18 @@ export class Game {
     // Check if off-track
     const nearestPoint = findNearestOnCenterline(carPosition, this.centerlineSamples);
     const offTrack = isOffTrack(nearestPoint.lateralDistance, this.options.trackWidth);
+
+    // Hard boundary: if off-track, snap car back inside the edge and kill outward lateral velocity
+    if (offTrack) {
+      const s = this.centerlineSamples[nearestPoint.sampleIndex];
+      this.carPhysics.constrainToTrack(
+        s.position.x,
+        s.position.z,
+        s.normal.x,
+        s.normal.z,
+        this.options.trackWidth
+      );
+    }
 
     this.hud.update({
       speedKmh: kinematics.speed * 3.6, // Convert m/s to km/h

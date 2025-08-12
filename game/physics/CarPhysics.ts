@@ -1,5 +1,5 @@
 import { InputState } from '../core/Input';
-import { wrapAngle } from '../util/MathUtil';
+import { clamp, wrapAngle } from '../util/MathUtil';
 import { DriftEffects } from './DriftController';
 
 export interface PhysicsParams {
@@ -61,9 +61,11 @@ export class CarPhysics {
     // Apply lateral dynamics with bicycle model
     this.applyLateralDynamics(deltaTime, controls, driftEffects);
 
-    // Apply yaw torque from drift controller (torque semantics)
+    // Apply yaw torque from drift controller (torque semantics), scaled by speed so it does not spin at standstill
     if (Math.abs(driftEffects.yawTorque) > 0) {
-      this.angularVelocity += (driftEffects.yawTorque * deltaTime) / this.params.yawInertia;
+      const torqueSpeedScale = Math.min(1, Math.max(0, (this.speed - 2) / 8)); // 0 below 2 m/s → 1 by ~10 m/s
+      const scaledTorque = driftEffects.yawTorque * torqueSpeedScale;
+      this.angularVelocity += (scaledTorque * deltaTime) / this.params.yawInertia;
     }
 
     // PD stabilization on drift angle and yaw rate
@@ -73,6 +75,12 @@ export class CarPhysics {
       -angleStiffness * this.driftAngle - dampingCoeff * this.angularVelocity;
     this.angularVelocity += (correctiveTorque * deltaTime) / this.params.yawInertia;
 
+    // Extra damping at low speeds to prevent endless spinning
+    if (this.speed < 1.0) {
+      this.angularVelocity *= 0.9; // exponential decay per step
+      if (Math.abs(this.angularVelocity) < 1e-3) this.angularVelocity = 0;
+    }
+
     // Update heading from angular velocity
     this.heading += this.angularVelocity * deltaTime;
     this.heading = wrapAngle(this.heading);
@@ -80,6 +88,9 @@ export class CarPhysics {
     // Update position
     this.position.x += this.velocity.x * deltaTime;
     this.position.z += this.velocity.z * deltaTime;
+
+    // Lateral velocity damping in vehicle frame to stabilize slides and prevent death spins
+    this.applyLateralVelocityDamping(deltaTime);
 
     // Clamp maximum forward speed (vector magnitude)
     if (this.speed > 55) {
@@ -96,6 +107,22 @@ export class CarPhysics {
       this.velocity.x += excess * Math.cos(this.heading);
       this.velocity.z += excess * Math.sin(this.heading);
     }
+  }
+
+  private applyLateralVelocityDamping(dt: number): void {
+    // Decompose world velocity into vehicle frame (longitudinal/lateral)
+    const cosH = Math.cos(this.heading);
+    const sinH = Math.sin(this.heading);
+    const long = this.velocity.x * cosH + this.velocity.z * sinH;
+    const lat = -this.velocity.x * sinH + this.velocity.z * cosH;
+
+    // Apply lateral damping proportional to speed (stronger at low speed to prevent spinning)
+    const latDamp = clamp(4 - Math.abs(long) * 0.2, 1, 4); // between 1 and 4
+    const newLat = lat * Math.exp(-latDamp * dt);
+
+    // Recompose to world velocity
+    this.velocity.x = long * cosH - newLat * sinH;
+    this.velocity.z = long * sinH + newLat * cosH;
   }
 
   private applyLongitudinalAndResistiveForces(deltaTime: number, controls: InputState): void {
@@ -161,17 +188,19 @@ export class CarPhysics {
     // Calculate yaw rate from bicycle model
     const yawRate = (this.speed / this.params.wheelBase) * Math.sin(beta);
 
-    // Calculate lateral forces at front and rear axles
+    // Calculate lateral forces at front and rear axles (scaled by speed to avoid static spin)
     const frontLateralForce = this.calculateLateralForce(
       beta,
       this.params.baseFrontGrip * driftEffects.frontGripMultiplier,
-      this.params.cgToFront
+      this.params.cgToFront,
+      this.speed
     );
 
     const rearLateralForce = this.calculateLateralForce(
       -this.driftAngle,
       this.params.baseRearGrip * driftEffects.rearGripMultiplier,
-      this.params.cgToRear
+      this.params.cgToRear,
+      this.speed
     );
 
     // Apply yaw moment
@@ -199,18 +228,22 @@ export class CarPhysics {
   private calculateLateralForce(
     slipAngle: number,
     gripMultiplier: number,
-    leverArm: number
+    leverArm: number,
+    speed: number
   ): number {
     // Simplified tire model - linear up to a point, then saturates
     const maxForce = gripMultiplier * this.params.mass * 9.81 * 0.7; // 70% of weight for lateral grip
     const linearRegion = (Math.PI / 180) * 3; // 3 degrees linear
 
+    // Speed factor to taper lateral force near standstill (prevents spinning in place)
+    const speedFactor = Math.min(1, Math.max(0, (speed - 0.5) / 6));
+
     if (Math.abs(slipAngle) < linearRegion) {
       // Linear region
-      return (slipAngle / linearRegion) * maxForce;
+      return (slipAngle / linearRegion) * maxForce * speedFactor;
     } else {
       // Saturated region
-      return Math.sign(slipAngle) * maxForce;
+      return Math.sign(slipAngle) * maxForce * speedFactor;
     }
   }
 
@@ -238,5 +271,39 @@ export class CarPhysics {
 
   getSteerAngle(steerInput: number): number {
     return steerInput * this.params.maxSteer;
+  }
+
+  // Constrain car to track boundary using nearest centerline sample info
+  // samplePos: centerline position (x,z), sampleNormal: unit normal (x,z)
+  // If outside width/2 + tolerance, snap to boundary and remove outward lateral velocity
+  constrainToTrack(
+    samplePosX: number,
+    samplePosZ: number,
+    normalX: number,
+    normalZ: number,
+    trackWidth: number,
+    tolerance = 0.1
+  ): void {
+    const half = trackWidth / 2;
+    const toPosX = this.position.x - samplePosX;
+    const toPosZ = this.position.z - samplePosZ;
+    const lateral = toPosX * normalX + toPosZ * normalZ; // signed distance from centerline
+    if (Math.abs(lateral) <= half + tolerance) return;
+
+    // Snap position to boundary just inside the edge
+    const targetLateral = Math.sign(lateral) * (half - 0.05);
+    this.position.x = samplePosX + normalX * targetLateral;
+    this.position.z = samplePosZ + normalZ * targetLateral;
+
+    // Remove outward lateral velocity component to avoid re-exiting immediately
+    const vLat = this.velocity.x * normalX + this.velocity.z * normalZ;
+    if (Math.sign(vLat) === Math.sign(lateral)) {
+      // subtract outward component
+      this.velocity.x -= vLat * normalX;
+      this.velocity.z -= vLat * normalZ;
+    }
+    // Dampen overall speed slightly on contact
+    this.velocity.x *= 0.9;
+    this.velocity.z *= 0.9;
   }
 }

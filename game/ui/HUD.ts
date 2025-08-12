@@ -3,6 +3,8 @@ export interface HUDData {
   driftDeg: number;
   isDrifting: boolean;
   offTrack: boolean;
+  lapMs?: number;
+  lastLapMs?: number;
 }
 
 export class HUD {
@@ -12,6 +14,8 @@ export class HUD {
   private driftAngleElement: HTMLElement;
   private driftIndicator: HTMLElement;
   private offTrackBanner: HTMLElement;
+  private lapTimerElement: HTMLElement;
+  private lastLapElement: HTMLElement;
   
   constructor(container: HTMLElement) {
     this.container = container;
@@ -85,6 +89,38 @@ export class HUD {
       border: 2px solid rgba(255, 215, 0, 0.3);
     `;
     this.driftIndicator.textContent = 'DRIFT';
+
+    // Lap timer (top center)
+    this.lapTimerElement = document.createElement('div');
+    this.lapTimerElement.style.cssText = `
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 28px;
+      font-weight: 800;
+      padding: 6px 12px;
+      background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(0,0,0,0.5));
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.2);
+    `;
+    this.lapTimerElement.textContent = '00:00.000';
+
+    // Last lap below timer (smaller)
+    this.lastLapElement = document.createElement('div');
+    this.lastLapElement.style.cssText = `
+      position: absolute;
+      top: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 14px;
+      font-weight: 600;
+      padding: 4px 8px;
+      background: rgba(0,0,0,0.5);
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.15);
+    `;
+    this.lastLapElement.textContent = 'Last: —';
     
     // Off-track banner
     this.offTrackBanner = document.createElement('div');
@@ -135,6 +171,8 @@ export class HUD {
     this.hudRoot.appendChild(this.speedElement);
     this.hudRoot.appendChild(this.driftAngleElement);
     this.hudRoot.appendChild(this.driftIndicator);
+    this.hudRoot.appendChild(this.lapTimerElement);
+    this.hudRoot.appendChild(this.lastLapElement);
     this.hudRoot.appendChild(this.offTrackBanner);
     this.hudRoot.appendChild(controlsInfo);
     
@@ -178,11 +216,32 @@ export class HUD {
     } else {
       this.offTrackBanner.style.opacity = '0';
     }
+
+    // Update lap timer
+    if (typeof data.lapMs === 'number') {
+      const txt = this.formatMs(data.lapMs);
+      if (this.lapTimerElement.textContent !== txt) this.lapTimerElement.textContent = txt;
+    }
+    if (typeof data.lastLapMs === 'number') {
+      const txt = `Last: ${this.formatMs(data.lastLapMs)}`;
+      if (this.lastLapElement.textContent !== txt) this.lastLapElement.textContent = txt;
+    }
   }
   
   dispose(): void {
     if (this.hudRoot && this.hudRoot.parentNode) {
       this.hudRoot.parentNode.removeChild(this.hudRoot);
     }
+  }
+
+  private formatMs(ms: number): string {
+    const totalMs = Math.max(0, Math.floor(ms));
+    const minutes = Math.floor(totalMs / 60000);
+    const seconds = Math.floor((totalMs % 60000) / 1000);
+    const millis = totalMs % 1000;
+    const mm = String(minutes).padStart(2, '0');
+    const ss = String(seconds).padStart(2, '0');
+    const mmm = String(millis).padStart(3, '0');
+    return `${mm}:${ss}.${mmm}`;
   }
 }
