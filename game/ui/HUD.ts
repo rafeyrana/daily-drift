@@ -16,12 +16,12 @@ export class HUD {
   private offTrackBanner: HTMLElement;
   private lapTimerElement: HTMLElement;
   private lastLapElement: HTMLElement;
-  
+
   constructor(container: HTMLElement) {
     this.container = container;
     this.createHUD();
   }
-  
+
   private createHUD(): void {
     // Create HUD root container
     this.hudRoot = document.createElement('div');
@@ -37,7 +37,7 @@ export class HUD {
       text-shadow: 1px 1px 3px rgba(0,0,0,0.9);
       z-index: 1000;
     `;
-    
+
     // Speed display
     this.speedElement = document.createElement('div');
     this.speedElement.style.cssText = `
@@ -54,7 +54,7 @@ export class HUD {
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     `;
     this.speedElement.textContent = '0 km/h';
-    
+
     // Drift angle display
     this.driftAngleElement = document.createElement('div');
     this.driftAngleElement.style.cssText = `
@@ -69,7 +69,7 @@ export class HUD {
       border-left: 3px solid #ffd700;
     `;
     this.driftAngleElement.textContent = '0°';
-    
+
     // Drift indicator
     this.driftIndicator = document.createElement('div');
     this.driftIndicator.style.cssText = `
@@ -121,7 +121,7 @@ export class HUD {
       border: 1px solid rgba(255,255,255,0.15);
     `;
     this.lastLapElement.textContent = 'Last: —';
-    
+
     // Off-track banner
     this.offTrackBanner = document.createElement('div');
     this.offTrackBanner.style.cssText = `
@@ -142,7 +142,7 @@ export class HUD {
       letter-spacing: 1px;
     `;
     this.offTrackBanner.textContent = 'OFF TRACK';
-    
+
     // Controls info (bottom) - NASCAR styled
     const controlsInfo = document.createElement('div');
     controlsInfo.style.cssText = `
@@ -166,7 +166,7 @@ export class HUD {
       • Power-over: Hold ↑ + steer<br>
       • Feint: Quick ←→ + throttle
     `;
-    
+
     // Add all elements to HUD root
     this.hudRoot.appendChild(this.speedElement);
     this.hudRoot.appendChild(this.driftAngleElement);
@@ -175,41 +175,43 @@ export class HUD {
     this.hudRoot.appendChild(this.lastLapElement);
     this.hudRoot.appendChild(this.offTrackBanner);
     this.hudRoot.appendChild(controlsInfo);
-    
+
     // Add HUD to container
     this.container.appendChild(this.hudRoot);
   }
-  
+
   update(data: HUDData): void {
     // Update speed
     const speedText = `${Math.round(data.speedKmh)} km/h`;
     if (this.speedElement.textContent !== speedText) {
       this.speedElement.textContent = speedText;
     }
-    
+
     // Update drift angle
     const driftText = `${Math.round(Math.abs(data.driftDeg))}°`;
     if (this.driftAngleElement.textContent !== driftText) {
       this.driftAngleElement.textContent = driftText;
     }
-    
+
     // Update drift indicator
     if (data.isDrifting) {
       this.driftIndicator.style.opacity = '1';
       // Change color based on drift angle severity
       if (Math.abs(data.driftDeg) > 30) {
         this.driftIndicator.style.color = '#ff3333';
-        this.driftIndicator.style.textShadow = '0 0 15px rgba(255, 51, 51, 0.9), 2px 2px 4px rgba(0,0,0,0.9)';
+        this.driftIndicator.style.textShadow =
+          '0 0 15px rgba(255, 51, 51, 0.9), 2px 2px 4px rgba(0,0,0,0.9)';
         this.driftIndicator.style.borderColor = 'rgba(255, 51, 51, 0.5)';
       } else {
         this.driftIndicator.style.color = '#ffd700';
-        this.driftIndicator.style.textShadow = '0 0 12px rgba(255, 215, 0, 0.8), 2px 2px 4px rgba(0,0,0,0.9)';
+        this.driftIndicator.style.textShadow =
+          '0 0 12px rgba(255, 215, 0, 0.8), 2px 2px 4px rgba(0,0,0,0.9)';
         this.driftIndicator.style.borderColor = 'rgba(255, 215, 0, 0.3)';
       }
     } else {
       this.driftIndicator.style.opacity = '0';
     }
-    
+
     // Update off-track banner
     if (data.offTrack) {
       this.offTrackBanner.style.opacity = '1';
@@ -227,7 +229,7 @@ export class HUD {
       if (this.lastLapElement.textContent !== txt) this.lastLapElement.textContent = txt;
     }
   }
-  
+
   dispose(): void {
     if (this.hudRoot && this.hudRoot.parentNode) {
       this.hudRoot.parentNode.removeChild(this.hudRoot);

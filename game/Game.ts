@@ -22,6 +22,9 @@ export class Game {
   private chaseCamera: ChaseCamera;
   private hud: HUD;
   private centerlineSamples: CenterlineSample[] = [];
+  private lapTimerMs = 0;
+  private lastLapMs: number | undefined = undefined;
+  private startedLap = false;
 
   constructor(
     private container: HTMLElement,
@@ -295,6 +298,29 @@ export class Game {
     // Update wheel visuals
     const steerAngle = this.carPhysics.getSteerAngle(inputData.state.steer);
     this.car.updateWheelVisuals(steerAngle, updatedKinematics.speed, deltaTime);
+    // Lap timing: detect crossing near start line moving forward
+    if (this.centerlineSamples.length > 0) {
+      const start = this.centerlineSamples[0];
+      const carPos = this.car.getPosition();
+      const toCar = new THREE.Vector3(carPos.x - start.position.x, 0, carPos.z - start.position.z);
+      const lateral = toCar.dot(start.normal); // signed distance left/right
+      const forward = toCar.dot(start.tangent); // approx progress past start
+
+      // consider being within 2m of the centerline laterally and positive forward as crossing region
+      const nearLine = Math.abs(lateral) < 2.0 && forward > 0;
+      if (nearLine && this.startedLap) {
+        // lap completed
+        this.lastLapMs = this.lapTimerMs * 1000;
+        this.lapTimerMs = 0;
+        this.startedLap = false; // wait until we leave region to re-arm
+      } else if (!nearLine) {
+        // Arm timer once we leave start area
+        this.startedLap = true;
+      }
+
+      // accumulate timer if armed
+      if (this.startedLap) this.lapTimerMs += deltaTime * 1000;
+    }
   }
 
   private onRender(interpAlpha: number): void {
@@ -336,6 +362,8 @@ export class Game {
       driftDeg: radToDeg(Math.abs(kinematics.driftAngle)),
       isDrifting: driftStatus.isDrifting,
       offTrack,
+      lapMs: this.lapTimerMs,
+      lastLapMs: this.lastLapMs,
     });
   }
 
