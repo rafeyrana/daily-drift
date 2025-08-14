@@ -1,6 +1,6 @@
 # Daily Drift
 
-Community-driven, drifting game built with Three.js and Devvit, hosted on Reddit.
+Community-driven, 3D drifting game built with Three.js and Devvit, hosted on Reddit.
 
 Built for the Reddit Games NYC Hackathon — placed 2nd.
 
@@ -23,9 +23,11 @@ Built for the Reddit Games NYC Hackathon — placed 2nd.
 - Procedural track with soft walls
 - HUD: speed, drift angle, DRIFT badge, off‑track banner, lap timer + last lap
 
-## Roadmap
+## Custom Cars and Importable Assets
 
-- Daily mode: 3 attempts/day + leaderboards
-- First 10 track submissions → community voting → tomorrow’s track
-- Ghost replays; track editor; custom car presets
-- Server verification (input replay) + anti‑cheat
+- Import custom 3D car models (.glb/.gltf)
+- Customize car colors, materials, and decals
+- Adjust car physics parameters (power, grip, weight)
+- Share car presets with the community
+- Support for custom track textures and props
+- Asset validation and optimization pipeline
